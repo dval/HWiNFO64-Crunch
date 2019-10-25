@@ -1,4 +1,6 @@
 library(tidyverse)
+library(R.utils)
+library(parallel)
 library(doSNOW)  
 library(foreach)
 
@@ -116,8 +118,10 @@ searchData <- data.frame( searchString=character(si),
 # populate the data.frame with the search list.
 for( i in 1:si ) searchData[i, ] <- searches[[i]] 
 
+# find number of cores
+coreCount = floor( 0.85 * detectCores()) # use most of our cores
 # setup simple multi-thread cluster on local nodes
-localCluster <- makeCluster(12, outfile=" " , type = "SOCK")
+localCluster <- makeCluster(coreCount, outfile=" " , type = "SOCK")
 # start local cluster
 # use doSNOW package so it works on windows
 registerDoSNOW(localCluster)
