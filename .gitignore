@@ -1,4 +1,12 @@
+# R
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+
+# System
+.DS_Store
+
+# App
+csv*
+output*

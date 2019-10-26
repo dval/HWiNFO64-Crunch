@@ -83,14 +83,14 @@ plotData <- function( searchData ){
     gather( key="variable", value="value", -Time) # ignore Time column
   
   # plot the current search
-  tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
+  ggplot(datasampleLong, aes( x=Time, y=value )) + 
     geom_line( aes( colour=variable )) + 
     labs( subtitle=ptitle, colour="Measurement", title=csvPath ) # use specified title
   
   # save the plot to a png file in working directory
-  ggsave(paste("./output/" ,ptitle, ".png"), plot = last_plot(), device = png(), 
+  ggsave(paste("./output/" ,ptitle, ".png", sep=""), plot = last_plot(), device = "png", 
          scale = 1, width = 300, height = 140, dpi = 96, units = "mm")
-  
+  #dev.off()
 }
 
 # list of defined column groups, created by regex-ing the titles
