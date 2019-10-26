@@ -89,7 +89,7 @@ plotData <- function( searchData ){
   
   # save the plot to a png file in working directory
   ggsave(paste("./output/" ,ptitle, ".png", sep=""), plot = last_plot(), device = "png", 
-         scale = 1, width = 300, height = 140, dpi = 96, units = "mm")
+         scale = 1, width = 380, height = 160, dpi = 96, units = "mm")
   #dev.off()
 }
 
@@ -122,8 +122,8 @@ for( i in 1:si ) searchData[i, ] <- searches[[i]]
 coreCount = floor( 0.85 * detectCores()) # use most of our cores
 # setup simple multi-thread cluster on local nodes
 localCluster <- makeCluster(coreCount, outfile=" " , type = "SOCK")
-# start local cluster
-# use doSNOW package so it works on windows
+# start local cluster/ register parallel mode
+# use doSNOW package so it works on windows also
 registerDoSNOW(localCluster)
 
 # time it, because why not 
@@ -136,8 +136,8 @@ print( system.time(
   # exported by default.
   foreach(i=1:si, .packages="tidyverse") %dopar% {
     
-    # our sample plotting function run 1 
-    # instance on each thread
+    # sample plotting function now acts as
+    # single process on each thread
     plotData(searchData[i,])
   }
   
