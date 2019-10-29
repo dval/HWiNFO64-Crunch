@@ -84,35 +84,29 @@ plotData <- function( searchData ){
     select( colnames( datasample )) %>%  
     gather( key="variable", value="value", -Time) # ignore Time column
   
-  # fix label width accross all plots in all threads
-  maxChars = 5 
-  #
-  
   # plot the current search
   tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
     geom_line( aes( colour=variable )) + 
     labs( subtitle=ptitle, colour="Measurement", title=csvPath ) # use specified title
-   
   
   # extract legend
   legend <- cowplot::get_legend(tplot)
   
-  # replot no legend
+  # replot without legend
   tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
     geom_line( aes( colour=variable )) + 
-    labs( subtitle=ptitle, colour="Measurement", title=csvPath, y=paste("Value", punit) ) + # use specified title
-    scale_y_continuous(labels= function(l) str_pad(l, 6, "left")) +
-    theme( legend.position = "none")
+    labs( subtitle=ptitle, colour="Measurement", 
+          title=csvPath, y=paste( "Value", punit )) + # use specified title
+    scale_y_continuous( labels=function(x)str_pad(x, 7, "left", pad=" " )) +  # left pad y values to 7 characters and
+    theme( legend.position = "none", axis.text=element_text( family="mono" )) # use mono-space for proper alignment
   
-  
-  # grid it
-  pgrid <- cowplot::plot_grid(tplot, legend, nrow=1, align="hv", rel_widths=c(9,2))
+  # put plot and legend in grid for placement
+  pgrid <- cowplot::plot_grid(tplot, legend, nrow=1, align="h", axis="t", rel_widths=c(9,2))
   
   # save the plot to a png file in working directory
   cowplot::save_plot(paste("./output/" ,ptitle, ".png", sep=""), plot = pgrid, device = "png", scale=2 )
   #dev.off()
 }
-# Use whitespaces to pad 
 
 # list of defined column groups, created by regex-ing the titles
 # then each is given a human readable name. 
