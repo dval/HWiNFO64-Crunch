@@ -1,4 +1,5 @@
 library(tidyverse)
+library(cowplot)
 library(R.utils)
 library(parallel)
 library(doSNOW)  
@@ -56,6 +57,7 @@ plotData <- function( searchData ){
   # get the pieces 
   regexp <- searchData[[1]]
   ptitle <- searchData[[2]]
+  punit <- searchData[[3]]
   
   # create a sample by searching for columns 
   # that match the regex 
@@ -82,16 +84,35 @@ plotData <- function( searchData ){
     select( colnames( datasample )) %>%  
     gather( key="variable", value="value", -Time) # ignore Time column
   
+  # fix label width accross all plots in all threads
+  maxChars = 5 
+  #
+  
   # plot the current search
-  ggplot(datasampleLong, aes( x=Time, y=value )) + 
+  tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
     geom_line( aes( colour=variable )) + 
     labs( subtitle=ptitle, colour="Measurement", title=csvPath ) # use specified title
+   
+  
+  # extract legend
+  legend <- cowplot::get_legend(tplot)
+  
+  # replot no legend
+  tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
+    geom_line( aes( colour=variable )) + 
+    labs( subtitle=ptitle, colour="Measurement", title=csvPath, y=paste("Value", punit) ) + # use specified title
+    scale_y_continuous(labels= function(l) str_pad(l, 6, "left")) +
+    theme( legend.position = "none")
+  
+  
+  # grid it
+  pgrid <- cowplot::plot_grid(tplot, legend, nrow=1, align="hv", rel_widths=c(9,2))
   
   # save the plot to a png file in working directory
-  ggsave(paste("./output/" ,ptitle, ".png", sep=""), plot = last_plot(), device = "png", 
-         scale = 1, width = 380, height = 160, dpi = 96, units = "mm")
+  cowplot::save_plot(paste("./output/" ,ptitle, ".png", sep=""), plot = pgrid, device = "png", scale=2 )
   #dev.off()
 }
+# Use whitespaces to pad 
 
 # list of defined column groups, created by regex-ing the titles
 # then each is given a human readable name. 
@@ -101,10 +122,12 @@ searches <- list(
   c( "^GPU.*Core*", "GPU Core", "Mixed" ),
   c( "^GPU.*Mem*", "GPU Memory", "Mixed" ),
   c( "^GPU.*MHz*", "GPU Clock Speed", "MHz" ),
-  c( "^(?!.*GPU).*Mem*", "System Memory", "Mixed" ),
+  c( "^(?!.*GPU).*(Mem|Page).*", "System Memory", "Mixed" ),
   c( "^(?!.*GPU).*Core.*Use*", "System Core Use", "Mixed" ),
-  c( "^(?!.*code).*\\[%\\]*", "System Utilization", "\\%" ),
-  c( "^.*CPU*", "CPU Info", "Mixed" )
+  c( "^(?!.*(?:Core|CPU|Activity|Page|Mem)).*\\[%\\]", "GPU Utilization", "%" ),
+  c( "^.*(Core|CPU).*\\[%\\]", "System Utilization", "%" ),
+  c( "^.*Activity.*\\[%\\]", "Disk Utilization", "%" ),
+  c( "^(?!.*RPM).*CPU*", "CPU Info", "Mixed" )
 )
 si <- length(searches)
 
