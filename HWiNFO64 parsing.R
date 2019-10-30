@@ -1,6 +1,7 @@
 library(tidyverse)
 library(cowplot)
 library(R.utils)
+library(qdapRegex)
 library(parallel)
 library(doSNOW)  
 library(foreach)
@@ -59,53 +60,60 @@ plotData <- function( searchData ){
   ptitle <- searchData[[2]]
   punit <- searchData[[3]]
   
-  # create a sample by searching for columns 
-  # that match the regex 
-  datasample <- as.data.frame( dataset[ c( rowStartPadding:( nL-rowEndPadding )), 
-                                        c( grep(regexp, columnNames, fixed=FALSE, perl=TRUE )) 
-                                      ])
-  
-  # easier to store annalysis before we replace Time
-  maxs <- sapply( datasample, max )
-  mins <- sapply( datasample, min )
-  means <- sapply( datasample, mean )
-  
-  # concatenate Date and Time columns into one
-  dTime <- paste( dataset[ c( rowStartPadding:( nL-rowEndPadding )),]$Date, 
-                  dataset[ c( rowStartPadding:( nL-rowEndPadding )),]$Time )
-  # add formatted datetime to sample
-  datasample$Time <- as.POSIXct( strptime( dTime , "%d.%m.%Y %H:%M:%OS" ))
-  options(digits.secs=3) #keep our miliseconds
-  
-  # get tricky here and reformat the table into long data table
-  # of key:value pairs. This allows ggplot to look at column 
-  # names as qualitative groups.
-  datasampleLong <- datasample %>% 
-    select( colnames( datasample )) %>%  
-    gather( key="variable", value="value", -Time) # ignore Time column
-  
-  # plot the current search
-  tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
-    geom_line( aes( colour=variable )) + 
-    labs( subtitle=ptitle, colour="Measurement", title=csvPath ) # use specified title
-  
-  # extract legend
-  legend <- cowplot::get_legend(tplot)
-  
-  # replot without legend
-  tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
-    geom_line( aes( colour=variable )) + 
-    labs( subtitle=ptitle, colour="Measurement", 
-          title=csvPath, y=paste( "Value", punit )) + # use specified title
-    scale_y_continuous( labels=function(x)str_pad(x, 7, "left", pad=" " )) +  # left pad y values to 7 characters and
-    theme( legend.position = "none", axis.text=element_text( family="mono" )) # use mono-space for proper alignment
-  
-  # put plot and legend in grid for placement
-  pgrid <- cowplot::plot_grid(tplot, legend, nrow=1, align="h", axis="t", rel_widths=c(9,2))
-  
-  # save the plot to a png file in working directory
-  cowplot::save_plot(paste("./output/" ,ptitle, ".png", sep=""), plot = pgrid, device = "png", scale=2 )
-  #dev.off()
+  #check for valid expression
+  if( qdapRegex::is.regex(regexp) == TRUE ){
+    
+    # create a sample by searching for columns 
+    # that match the regex 
+    datasample <- as.data.frame( dataset[ c( rowStartPadding:( nL-rowEndPadding )), 
+                                          c( grep(regexp, columnNames, fixed=FALSE, perl=TRUE )) 
+                                        ])
+    # check for data in return sample
+    if( nrow( datasample ) > 0 ){
+      
+      # easier to store annalysis before we replace Time
+      maxs <- sapply( datasample, max )
+      mins <- sapply( datasample, min )
+      means <- sapply( datasample, mean )
+      
+      # concatenate Date and Time columns into one
+      dTime <- paste( dataset[ c( rowStartPadding:( nL-rowEndPadding )),]$Date, 
+                      dataset[ c( rowStartPadding:( nL-rowEndPadding )),]$Time )
+      # add formatted datetime to sample
+      datasample$Time <- as.POSIXct( strptime( dTime , "%d.%m.%Y %H:%M:%OS" ))
+      options(digits.secs=3) #keep our miliseconds
+      
+      # get tricky here and reformat the table into long data table
+      # of key:value pairs. This allows ggplot to look at column 
+      # names as qualitative groups.
+      datasampleLong <- datasample %>% 
+        select( colnames( datasample )) %>%  
+        gather( key="variable", value="value", -Time) # ignore Time column
+      
+      # plot the current search
+      tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
+        geom_line( aes( colour=variable )) + 
+        labs( subtitle=ptitle, colour="Measurement", title=csvPath ) # use specified title
+      
+      # extract legend
+      legend <- cowplot::get_legend(tplot)
+      
+      # replot without legend
+      tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
+        geom_line( aes( colour=variable )) + 
+        labs( subtitle=ptitle, colour="Measurement", 
+              title=csvPath, y=paste( "Value", punit )) + # use specified title
+        scale_y_continuous( labels=function(x)str_pad(x, 7, "left", pad=" " )) +  # left pad y values to 7 characters and
+        theme( legend.position = "none", axis.text=element_text( family="mono" )) # use mono-space for proper alignment
+      
+      # put plot and legend in grid for placement
+      pgrid <- cowplot::plot_grid(tplot, legend, nrow=1, align="h", axis="t", rel_widths=c(9,2))
+      
+      # save the plot to a png file in working directory
+      cowplot::save_plot(paste("./output/" ,ptitle, ".png", sep=""), plot = pgrid, device = "png", scale=2 )
+      #dev.off()
+    }
+  }
 }
 
 # list of defined column groups, created by regex-ing the titles
@@ -151,7 +159,7 @@ print( system.time(
   # for each iteration. we need to export tidyverse to each
   # node for plotting and publishing. Libraries are not 
   # exported by default.
-  foreach(i=1:si, .packages="tidyverse") %dopar% {
+  foreach(i=1:si, .packages=c( "dplyr", "tidyr", "stringr", "ggplot2", "cowplot", "qdapRegex" )) %dopar% {
     
     # sample plotting function now acts as
     # single process on each thread
