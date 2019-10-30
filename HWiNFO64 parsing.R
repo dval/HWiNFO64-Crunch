@@ -53,6 +53,7 @@ columnNames <- colnames( dataset )
 #====================================#
 # collect data groups
 #====================================#
+
 plotData <- function( searchData ){
   
   # get the pieces 
@@ -65,9 +66,9 @@ plotData <- function( searchData ){
     
     # create a sample by searching for columns 
     # that match the regex 
-    datasample <- as.data.frame( dataset[ c( rowStartPadding:( nL-rowEndPadding )), 
+    datasample <- na.omit( as.data.frame( dataset[ c( rowStartPadding:( nL-rowEndPadding )), 
                                           c( grep(regexp, columnNames, fixed=FALSE, perl=TRUE )) 
-                                        ])
+                                         ]))
     # check for data in return sample
     if( nrow( datasample ) > 0 ){
       
@@ -90,10 +91,18 @@ plotData <- function( searchData ){
         select( colnames( datasample )) %>%  
         gather( key="variable", value="value", -Time) # ignore Time column
       
+      if( Sys.info()["sysname"] == "Windows" ){
+        windowsFonts( Consolas=windowsFont("Consolas"))
+      }else{
+        fonts( Consolas=font("Consolas"))
+      }
+      
       # plot the current search
       tplot <- ggplot(datasampleLong, aes( x=Time, y=value )) + 
         geom_line( aes( colour=variable )) + 
-        labs( subtitle=ptitle, colour="Measurement", title=csvPath ) # use specified title
+        labs( subtitle=ptitle, colour="Measurement", title=csvPath ) + # use specified title
+        scale_color_hue( labels=function(x) str_trunc( x, 21 )) +
+        theme( legend.text=element_text( family="Consolas" ))
       
       # extract legend
       legend <- cowplot::get_legend(tplot)
@@ -104,7 +113,7 @@ plotData <- function( searchData ){
         labs( subtitle=ptitle, colour="Measurement", 
               title=csvPath, y=paste( "Value", punit )) + # use specified title
         scale_y_continuous( labels=function(x)str_pad(x, 7, "left", pad=" " )) +  # left pad y values to 7 characters and
-        theme( legend.position = "none", axis.text=element_text( family="mono" )) # use mono-space for proper alignment
+        theme( legend.position = "none", axis.text=element_text( family ="mono" )) # use mono-space for proper alignment
       
       # put plot and legend in grid for placement
       pgrid <- cowplot::plot_grid(tplot, legend, nrow=1, align="h", axis="t", rel_widths=c(9,2))
