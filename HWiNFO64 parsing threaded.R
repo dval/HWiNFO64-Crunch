@@ -6,29 +6,104 @@ library(parallel)
 library(doSNOW)  
 library(foreach)
 
+
+#====================================#
+# User defined settings
+#====================================#
 # open file in working directory 
 #csvPath = "./csv/workdaySet1.csv"
 csvPath = "./csv/workdaySet2(OC).csv"
-
-
-#====================================#
-# setup dataset 
-#====================================#
-
-# count number of Rows in file
-nL = countLines( csvPath )
-
-# TODO: find a better way to count cols.
-# There are 200+ columns in HWiNFO CSV. All 
-# except 2 of them get classed as numeric.
-nC = length( read.csv( file=csvPath, header=TRUE,  stringsAsFactors=FALSE, 
-                       nrows=1, sep=",", check.names=FALSE )) - 2
-
 # these values are 'padding'. They are not row indices.
 # They are the number of rows to skip at the start and 
 # the number of rows to skip at the end.  
 rowStartPadding = 1000  #
 rowEndPadding = 1000    #
+
+
+#====================================#
+# Gather local environment info
+#====================================#
+# find number of cores
+#coreCount = floor( 0.86 * detectCores()) # use most of our cores
+coreCount = detectCores() - 1 
+# setup simple multi-thread cluster with local node for each core
+# specifically declaring outfile as blank outputs to console
+localCluster <- makeCluster(coreCount, outfile="" , type = "SOCK")
+
+#====================================#
+# setup CSV read for threading 
+#====================================#
+# makeTime returns a copy of the dataset with Date and Time 
+# columns concatentated into one column 'Time'. Time is
+# formatted as POSIX datetime, and 'Date' is removed from set.
+makeTime <- function( t_dataset ){
+  # concatenate Date and Time columns into one
+  dTime <- paste( t_dataset[ c( rowStartPadding:( nL-rowEndPadding )),]$Date, 
+                  t_dataset[ c( rowStartPadding:( nL-rowEndPadding )),]$Time )
+  # rewrite Time as datetime value
+  t_dataset$Time <- as.POSIXct( strptime( dTime , "%d.%m.%Y %H:%M:%OS" ))
+  options(digits.secs=3) #keep our miliseconds
+  # drop Date column 
+  t_dataset[ , !(names(t_dataset) %in% c("Date"))]
+  #provide update
+  return(t_dataset)
+}
+makeTimeHeader <- function( t_dataset ){
+  # concatenate Date and Time columns into one
+  dTime <- paste( t_dataset[ 1, ]$Date, 
+                  t_dataset[ 1, ]$Time )
+  # rewrite Time as datetime value
+  t_dataset$Time <- as.POSIXct( strptime( dTime , "%d.%m.%Y %H:%M:%OS" ))
+  options(digits.secs=3) #keep our miliseconds
+  # drop Date column 
+  t_dataset[ , !(names(t_dataset) %in% c("Date"))]
+  #provide update
+  return(t_dataset)
+}
+
+# get first row so we have model
+tmp_df <- read.csv( file=csvPath, header=TRUE,  stringsAsFactors=FALSE, 
+                    nrows=1, sep=",", check.names=FALSE # stop read.csv replacing special characters with '.' dots.
+                    ) 
+# fix our $Time and $Date data
+tmp_df <- makeTimeHeader( tmp_df )
+# store list of colomn names
+columnNames <- colnames( tmp_df )
+# number of columns.
+nC = length( tmp_df )
+# number of Rows
+nL = countLines( csvPath )
+
+# the number of lines in a chunk depends on the size of the csv
+# and how many rows are padded on each side and how many cores
+# the local machine has
+chunkSize = floor((nL - (rowStartPadding + rowEndPadding))/coreCount)
+
+#====================================#
+# define dataset and whatever
+#====================================#
+
+
+
+# the entire csv file
+dataset <- na.omit(read.csv( file=csvPath, 
+                             header=TRUE, # the first row of the csv is the column headers
+                             stringsAsFactors=FALSE, # character fields as single string
+                             nrows=nL-3, # last 3 rows contain entirely different data then rest of table
+                             sep=",", dec=".", # match csv separator and decimal characters
+                             check.names=FALSE, # stop read.csv replacing special characters with '.' dots.
+                             colClasses=c( Date="character",  # set class types for columns
+                                           Time="character", 
+                                           rep( "numeric", nC )
+                             )
+                    ))
+
+
+read.csvChunk <- function( chunkIndex ){
+  
+}
+
+
 
 
 # the entire csv file
@@ -45,9 +120,6 @@ dataset <- na.omit(read.csv( file=csvPath,
                     ))
 # keep our miliseconds
 options( digits=3 )
-
-# store list of colomn names
-columnNames <- colnames( dataset )
 
 
 #====================================#
@@ -153,14 +225,10 @@ searchData <- data.frame( searchString=character(si),
 # populate the data.frame with the search list.
 for( i in 1:si ) searchData[i, ] <- searches[[i]] 
 
-# find number of cores
-coreCount = floor( 0.85 * detectCores()) # use most of our cores
-# setup simple multi-thread cluster on local nodes
-localCluster <- makeCluster(coreCount, outfile=" " , type = "SOCK")
+
 # start local cluster/ register parallel mode
 # use doSNOW package so it works on windows also
 registerDoSNOW(localCluster)
-
 # time it, because why not 
 # print() is necessary on windows Rstudio
 print( system.time(
