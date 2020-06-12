@@ -7,17 +7,18 @@ library(doSNOW)
 library(foreach)
 
 # open file in working directory 
-#csvPath = "./csv/workdaySet1.csv"
-csvPath = "./csv/workdaySet2(OC).csv"
+csvPath = "./csv/workdaySet1.csv"
+#csvPath = "./csv/workdaySet2(OC).csv"
 
 
 #====================================#
 # setup dataset 
 #====================================#
 
-# count number of Rows in file
+# count number of lines (Rows) in file
 nL = countLines( csvPath )
 
+# count number of columns in file
 # TODO: find a better way to count cols.
 # There are 200+ columns in HWiNFO CSV. All 
 # except 2 of them get classed as numeric.
@@ -32,7 +33,7 @@ rowEndPadding = 1000    #
 
 
 # the entire csv file
-dataset <- na.omit(read.csv( file=csvPath, 
+dataset <- read.csv( file=csvPath, 
                         header=TRUE, # the first row of the csv is the column headers
                         stringsAsFactors=FALSE, # character fields as single string
                         nrows=nL-3, # last 3 rows contain entirely different data then rest of table
@@ -42,7 +43,7 @@ dataset <- na.omit(read.csv( file=csvPath,
                                       Time="character", 
                                       rep( "numeric", nC )
                                      )
-                    ))
+                    )
 # keep our miliseconds
 options( digits=3 )
 
@@ -96,6 +97,7 @@ plotData <- function( searchData ){
         windowsFonts( Consolas=windowsFont("Consolas"))
       }#else{
        # fonts( Consolas=font("Consolas"))
+       # use DejaVu Mono maybe?
       #}
       
       # plot the current search
@@ -129,6 +131,7 @@ plotData <- function( searchData ){
 # list of defined column groups, created by regex-ing the titles
 # then each is given a human readable name. 
 # This could probable even be stored in external csv file to share...
+# c( regex, title, unitLabel )
 searches <- list(
   c( "^GPU.*C\\]", "GPU Temperatures", "°C" ),
   c( "^GPU.*Core*", "GPU Core", "Mixed" ),
@@ -150,11 +153,12 @@ searchData <- data.frame( searchString=character(si),
                           displayUnits=character(si), 
                           stringsAsFactors=FALSE
                         )
-# populate the data.frame with the search list.
+# populate the data.frame with search list.
 for( i in 1:si ) searchData[i, ] <- searches[[i]] 
 
 # find number of cores
-coreCount = floor( 0.85 * detectCores()) # use most of our cores
+#coreCount = floor( 0.85 * detectCores()) # use most of our cores
+coreCount = (detectCores() - 1)
 # setup simple multi-thread cluster on local nodes
 localCluster <- makeCluster(coreCount, outfile=" " , type = "SOCK")
 # start local cluster/ register parallel mode
