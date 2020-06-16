@@ -1,8 +1,6 @@
-<<<<<<< HEAD
 # RStudio
 =======
 # R
->>>>>>> 3776262936ed4f11188fb43731ba4ed258e4da6b
 .Rproj.user
 .Rhistory
 .RData
@@ -10,10 +8,8 @@
 
 # System
 .DS_Store
-<<<<<<< HEAD
 =======
 
 # App
 csv*
 output*
->>>>>>> 3776262936ed4f11188fb43731ba4ed258e4da6b
